@@ -967,6 +967,14 @@ FUTURE_SCOPE = ['Tune hyperparameters more widely (randomised or Bayesian search
 REFERENCES = ['Dawber TR, Meadors GF, Moore FE Jr. Epidemiological approaches to heart disease: the Framingham Study. American Journal of Public Health. 1951;41(3):279-286.', "D'Agostino RB Sr, Vasan RS, Pencina MJ, et al. General cardiovascular risk profile for use in primary care: the Framingham Heart Study. Circulation. 2008;117(6):743-753.", 'Breiman L. Random forests. Machine Learning. 2001;45(1):5-32.', 'Chen T, Guestrin C. XGBoost: a scalable tree boosting system. Proceedings of the 22nd ACM SIGKDD Conference. 2016:785-794.', 'Pedregosa F, et al. Scikit-learn: machine learning in Python. Journal of Machine Learning Research. 2011;12:2825-2830.', 'Paszke A, et al. PyTorch: an imperative style, high-performance deep learning library. Advances in Neural Information Processing Systems 32. 2019.', 'Loshchilov I, Hutter F. Decoupled weight decay regularization (AdamW). International Conference on Learning Representations. 2019.', 'Youden WJ. Index for rating diagnostic tests. Cancer. 1950;3(1):32-35.', 'Hanley JA, McNeil BJ. The meaning and use of the area under a receiver operating characteristic (ROC) curve. Radiology. 1982;143(1):29-36.', 'Saito T, Rehmsmeier M. The precision-recall plot is more informative than the ROC plot when evaluating binary classifiers on imbalanced datasets. PLoS ONE. 2015;10(3):e0118432.']
 
 
+
+LITERATURE = ['**Origins of risk-factor thinking.** The Framingham Heart Study began in 1948 and gave medicine the idea that heart disease can be predicted from ordinary measurements such as blood pressure, cholesterol and smoking (Dawber et al., 1951 [1]). It is still the standard source for risk-prediction work, which is why this project uses its extract.', "**Conventional risk scores.** D'Agostino et al. (2008) [2] turned the cohort into a general cardiovascular risk profile for primary care that combines age, sex, cholesterol, blood pressure, treatment, smoking and diabetes in a regression-based score. It is transparent and easy to use, but it assumes each factor acts in a fixed, mostly additive way.", '**Machine-learning alternatives.** Random forests (Breiman, 2001 [3]) average many decision trees and can capture interactions without assuming a form. Gradient-boosted trees such as XGBoost (Chen and Guestrin, 2016 [4]) build trees one after another to correct earlier errors and are strong on tabular data. Neural networks trained with modern optimisers such as AdamW (Loshchilov and Hutter, 2019 [7]) add flexibility at the cost of interpretability. Implementations used here are scikit-learn [5] and PyTorch [6].', "**Evaluating a risk model.** Because only about one patient in seven has the outcome, accuracy is misleading. The area under the ROC curve (Hanley and McNeil, 1982 [9]) measures ranking quality, precision-recall analysis (Saito and Rehmsmeier, 2015 [10]) is more informative for the rare class, and Youden's index (1950 [8]) gives a principled decision threshold.", '**Gap this project addresses.** Rather than claim that a complex model is better, CardioScope compares a linear model, two tree ensembles and a neural network under identical, leakage-free preprocessing and validation, reports calibration and the threshold trade-off, and explains each individual prediction.']
+CONCLUSION = '**Conclusion.** Four models were trained on the same leakage-free pipeline and compared by cross-validation and one held-out test. Their discrimination is close, so the simpler, more explainable model is the sensible default. The hyperparameter-tuning and feature-engineering experiments (section 6c) change cross-validated AUC by amounts smaller than the fold-to-fold spread, which supports keeping the default settings and the original 15 features. The dashboard turns the result into something usable: a risk estimate, an explanation of what drives it, and a threshold explorer that shows the cost of missing cases versus raising false alarms.'
+HYPERPARAMS = [("Logistic Regression", "C = 0.5, L2 penalty, max_iter = 2000"),
+               ("Random Forest", "500 trees, min_samples_leaf = 10, max_features = sqrt"),
+               ("XGBoost", "300 trees, max_depth = 3, learning_rate = 0.03, subsample = 0.8, colsample_bytree = 0.8, min_child_weight = 5, reg_lambda = 5"),
+               ("ANN (MLP)", "hidden layers 64 and 32 with BatchNorm, ReLU, dropout 0.3; AdamW lr = 1e-3, weight decay = 1e-3; batch 128; early stopping (patience 15)")]
+
 # ====================================================================== glossary & final-results content
 FEATURE_GLOSSARY = [
     ("male", "Sex", "1 = male, 0 = female"), ("age", "Age", "Age in years at the first exam"),
@@ -1174,6 +1182,20 @@ def page_models(serving):
                            "Sensitivity": R[n]["test"]["recall_sensitivity"], "Specificity": R[n]["test"]["specificity"],
                            "Precision": R[n]["test"]["precision"], "F1": R[n]["test"]["f1"], "Threshold": R[n]["cv"]["threshold"]} for n in NAMES]).set_index("Model")
     st.dataframe(table.style.background_gradient(cmap="RdYlGn", axis=0).format("{:.3f}"), width="stretch")
+    st.subheader("Experimental setup and hyperparameters")
+    st.caption("One stratified 80/20 split (seed 42) and 5-fold stratified cross-validation on the training part. Every model is the same preprocessor plus one classifier.")
+    st.dataframe(pd.DataFrame(HYPERPARAMS, columns=["Model", "Settings"]).set_index("Model"), width="stretch")
+    exp_path = ART / "experiments.json"
+    if exp_path.exists():
+        ex = json.loads(exp_path.read_text())
+        st.markdown("##### Hyperparameter tuning (grid search, cross-validated AUC)")
+        st.dataframe(pd.DataFrame(ex["tuning"]).assign(**{"Best parameters": lambda d: d["Best parameters"].astype(str)}).set_index("Model"), width="stretch")
+        st.markdown("##### Feature engineering (pulse pressure and mean arterial pressure)")
+        st.dataframe(pd.DataFrame(ex["feature_engineering"]).set_index("Feature set"), width="stretch")
+        st.caption("A change smaller than the fold-to-fold standard deviation is not evidence of a real gain.")
+    else:
+        st.info("Run section 6c of the notebook to add the tuning and feature-engineering results here.")
+
     st.subheader("Final results: which model wins?")
     rows, verdict = final_verdict(R, serving)
     st.success(verdict)
@@ -1243,7 +1265,7 @@ def page_about():
     with b:
         st.markdown("#### Limitations")
         st.markdown("- The cohort began in Massachusetts in 1948 and may not represent other populations or modern treatment.\n"
-                    "- Probabilities are not calibrated for individuals, and hyperparameters were not tuned.\n"
+                    "- Probabilities are not calibrated for individuals. A small grid search (section 6c of the notebook) gave only tiny gains, so defaults were kept.\n"
                     "- Moderate discrimination means many people flagged high risk will not develop CHD.\n"
                     f"- {CARD['disclaimer']}")
         st.markdown("#### Future scope")
@@ -1252,6 +1274,12 @@ def page_about():
         st.code("1. Run all cells of CardioScope_EndToEnd.ipynb  (trains, evaluates, writes artifacts/)\n2. streamlit run streamlit_app.py", language="text")
         v = CARD["versions"]
         st.caption(f"Trained {CARD['trained_at'][:10]} · scikit-learn {v['scikit-learn']} · xgboost {v['xgboost']} · torch {v['torch']}")
+    st.divider()
+    st.markdown("### Literature review and background")
+    for para in LITERATURE:
+        st.markdown(para)
+    st.markdown("### Conclusion")
+    st.success(CONCLUSION)
     st.divider()
     st.markdown("### References")
     st.markdown("\n".join(f"{i}. {r}" for i, r in enumerate(REFERENCES, 1)))
