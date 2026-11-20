@@ -333,6 +333,38 @@ def style(fig, h=380, legend=True):
     return fig
 
 
+EXPLAIN = {
+    'gauge': ('Risk gauge', "The needle shows the model's estimated chance of coronary heart disease within 10 years for the profile you entered. Background bands run green (low) to yellow, orange, red and purple (very high). The blue marker is the average risk in the study cohort, so a needle past it means above-average risk."),
+    'factors': ('What moves this result', 'Each bar shows how much one factor changes your risk compared with a typical patient, in percentage points. Red bars push risk up, green bars pull it down, and the longest bars matter most. It is found by swapping one factor at a time to the typical value and re-scoring, so it describes this model, not cause and effect.'),
+    'cmp': ('Same patient, four models', 'The same profile scored by all four models. If the bars are close, the models agree and the estimate is stable. A large gap means the profile sits where the models extrapolate differently, so treat the number with more caution.'),
+    'sweep_chart': ('Risk curve', 'Only the selected factor changes along the x-axis while everything else stays as you entered it. Marker colour follows risk (green low to purple high), the shaded bands match low / moderate / high, and the star marks you. A steep section shows where a small change matters most; a flat one means little effect.'),
+    'scen_chart': ('What-if bars', "Each bar is your estimated risk after one change, such as stopping smoking or lowering blood pressure, with the change in points beside it. 'All of the above' combines every change. These are model associations, not a promise that the change will cut your risk by that much."),
+    'donut': ('Outcome split', 'Share of patients in the dataset who did or did not develop CHD within 10 years. It shows how imbalanced the problem is: far fewer people have the outcome than not, which is why accuracy alone is a poor yardstick.'),
+    'mult': ('Risk multipliers', 'Each bar compares the CHD rate of a higher-risk group with a lower-risk group, such as age 65+ versus 30-39. A value of 3× means the rate is three times as high. Hover to see the two underlying rates. These are raw group comparisons and do not adjust for other factors.'),
+    'rate': ('CHD rate by group', 'Patients are grouped by the chosen factor and each bar is the share who developed CHD. The dashed line is the overall rate, so bars above it are higher-risk groups. Hover for the group size, because small groups give noisy rates.'),
+    'heat': ('Correlation heatmap', 'Each cell is the correlation (r) between two variables, from -1 (move in opposite directions) to +1 (move together); 0 means no linear link. Variables are sorted by their link with the 10-year CHD outcome. Strongly related pairs, like systolic and diastolic pressure, carry overlapping information.'),
+    'hist': ('Distribution by outcome', 'Overlaid histograms show how a measurement is spread among patients with and without CHD, as a percentage of each group. The box plot above shows the median and spread. The more the two shapes shift apart, the more useful that variable is for telling the groups apart.'),
+    'ratemap': ('Two-factor risk map', 'Patients are split into seven bands on each of two factors and each cell shows the CHD rate for that combination. Warm colours mark where risk concentrates, and cells with fewer than 15 patients are left blank because their rates are unreliable.'),
+    'violins': ('Violin plots', 'Each violin is the distribution of one measurement: wider parts mean more patients at that value. The inner box shows the median and quartiles and the line marks the mean. Long tails point to outliers, such as very high cholesterol or glucose.'),
+    'missing': ('Missing data', "Bars show the percentage of patients with no recorded value for each measurement. Glucose is usually the largest gap, which is why the pipeline adds a 'glucose missing' flag and fills the rest with the median instead of dropping rows."),
+    'picto': ('100-patient picture', 'The test results rescaled to 100 people. Each dot is a patient: caught (CHD, flagged), missed (CHD, not flagged), false alarm (healthy, flagged) or correctly cleared. It turns the confusion matrix into counts you can picture.'),
+    'conf': ('Confusion matrix', "Rows are the true outcome and columns are the model's prediction on the test set. The top-left and bottom-right cells are correct calls. Top-right is false alarms and bottom-left is missed CHD cases. Sensitivity and specificity are computed from these four counts."),
+    'meters': ('Detection quality', 'Sensitivity is the share of real CHD cases caught. Specificity is the share of healthy people correctly cleared. Precision is how many flagged people truly develop CHD, and F1 balances precision and recall. Higher is better, but they trade off against each other.'),
+    'thrfig': ('Threshold trade-off', 'Each line is a metric at every possible decision threshold; the red line is the one chosen with the slider. Lowering the threshold raises sensitivity and the share flagged, but lowers specificity and precision. Choose the point that suits the cost of a missed case versus a false alarm.'),
+    'curves': ('ROC, precision-recall and calibration', "ROC: curves closer to the top-left are better and the dashed diagonal is a coin flip. Precision-recall: higher is better, which matters for the rarer CHD class. Calibration: points near the dashed diagonal mean predicted risk matches the observed rate, so '20%' really means about 20 in 100."),
+    'auc': ('AUC: cross-validation vs test', 'Solid bars are the cross-validated AUC used to choose the model and hatched bars are the held-out test AUC. Similar heights mean the model generalises. Gaps of about 0.03 are expected from test-set noise and are not proof that one model is better.'),
+    'radar': ('Model profile', "Each model's shape across five scores, with the centre at 0.5 (a coin flip). A bigger, more even shape means better all-round performance, and a lopsided one means the model is strong at one thing, such as sensitivity, at the cost of another."),
+    'imp': ('Feature importance', 'Permutation importance: each feature is shuffled in turn and the bar shows how much the test AUC drops. A longer bar means the model relies on that feature more. Error bars show variation across repeats, and a bar near zero means the feature adds little.'),
+    'ann': ('ANN training curves', 'Left: training loss (blue) versus validation loss (pink) per epoch, with the dotted line marking the epoch kept by early stopping. If validation loss rises while training loss keeps falling, the network is overfitting. Right: validation AUC over the same epochs.'),
+}
+
+
+def explain(key, box=st):
+    title, text = EXPLAIN[key]
+    with box.expander(f"📘 How to read: {title}"):
+        st.write(text)
+
+
 # ====================================================================== figure builders
 def gauge_fig(p):
     c = RISK_COL[cat_of(p)]
@@ -753,12 +785,14 @@ def whatif_section(model_name, patient, p):
         key, _, _, _, unit = SWEEPS[label]
         cur_x = patient.get(key) if key != "cigsPerDay" else (patient["cigsPerDay"] or 0)
         st.plotly_chart(sweep_fig(xs, ys, label, None if cur_x is None else (cur_x, p * 100), unit), theme=None, key="sweep_chart")
+        explain("sweep_chart", st)
     with c2:
         st.subheader("What if one thing changed?")
         st.caption("Model estimates with everything else kept the same. Statistical associations, not a treatment plan.")
         rows = scenarios_data(model, patient, p)
         if rows:
             st.plotly_chart(scenarios_fig(rows, p), theme=None, key="scen_chart")
+            explain("scen_chart", st)
         else:
             st.info("Nothing in this profile sits above the usual reference range, so there is no single change to model. Try the high-risk example.")
 
@@ -814,6 +848,7 @@ def page_risk(model_name):
         thr = CARD["thresholds"][model_name]
         cat = cat_of(p)
         st.plotly_chart(gauge_fig(p), theme=None, key="gauge")
+        explain("gauge", st)
         ratio = p / BASE
         vs = (f"About <b>{ratio:.1f}×</b> the cohort average of {BASE:.1%}" if ratio >= 1.15 else
               f"About <b>{(1 - ratio) * 100:.0f}% below</b> the cohort average of {BASE:.1%}" if ratio <= 0.85 else f"Close to the cohort average of {BASE:.1%}")
@@ -828,6 +863,7 @@ def page_risk(model_name):
         items = local_factors(model, frame)
         if items:
             st.plotly_chart(factors_fig(items), theme=None, key="factors")
+            explain("factors", st)
         missing = [k for k in ["totChol", "glucose", "BMI", "heartRate"] if patient[k] is None]
         st.caption((f"{len(missing)} measurement(s) left blank and estimated from the cohort median. " if missing else "") +
                    f"Model: {model_name}. These are statistical associations in one cohort, not causes.")
@@ -836,6 +872,7 @@ def page_risk(model_name):
     cmp_cols = st.columns([5, 7], gap="large")
     with cmp_cols[0]:
         st.plotly_chart(models_fig({n: float(get_model(n).predict_proba(frame)[0, 1]) for n in NAMES}), theme=None, key="cmp")
+        explain("cmp", st)
     with cmp_cols[1]:
         st.markdown("#### Reading the result")
         st.markdown(f"- **Low** is under {BANDS['low_below']:.0%}, **moderate** {BANDS['low_below']:.0%}–{BANDS['high_from']:.0%}, **high** {BANDS['high_from']:.0%} or more. The cohort average is {BASE:.1%}.\n"
@@ -859,17 +896,22 @@ def page_explore():
     c1, c2 = st.columns([4, 6], gap="large")
     c1.subheader("The outcome")
     c1.plotly_chart(donut_fig(), theme=None, key="donut")
+    explain("donut", c1)
     c2.subheader("Risk multipliers")
     c2.plotly_chart(multipliers_fig(), theme=None, key="mult")
+    explain("mult", c2)
     st.subheader("CHD rate by risk factor")
     pick = st.pills("Pick a factor", RATE_LABELS, default="Age", key="rate_pick") or "Age"
     st.plotly_chart(rate_fig(pick), theme=None, key="rate")
+    explain("rate", st)
     st.subheader("How the factors relate to each other")
     st.plotly_chart(heat_fig(), theme=None, key="heat")
+    explain("heat", st)
     st.subheader("Distribution explorer")
     a, b = st.columns([1, 3])
     var = a.selectbox("Variable", CONTINUOUS, format_func=lambda c: LABELS[c], key="dist_var")
     b.plotly_chart(hist_fig(var), theme=None, key="hist")
+    explain("hist", b)
     st.subheader("Where is risk concentrated?")
     a, b, c = st.columns([1, 1, 3])
     xc = a.selectbox("Across", CONTINUOUS, index=0, format_func=lambda c: LABELS[c], key="rm_x")
@@ -878,11 +920,80 @@ def page_explore():
         c.info("Pick two different variables.")
     else:
         c.plotly_chart(rate_map_fig(xc, yc), theme=None, key="ratemap")
+        explain("ratemap", c)
     c1, c2 = st.columns([3, 2], gap="large")
     c1.subheader("Spread of every measurement")
     c2.subheader("Missing data")
     c1.plotly_chart(violins_fig(), theme=None, key="violins")
+    explain("violins", c1)
     c2.plotly_chart(missing_fig(), theme=None, key="missing")
+    explain("missing", c2)
+
+
+
+# ====================================================================== glossary & final-results content
+FEATURE_GLOSSARY = [
+    ("male", "Sex", "1 = male, 0 = female"), ("age", "Age", "Age in years at the first exam"),
+    ("education", "Education level", "1 = some high school ... 4 = college or above"),
+    ("currentSmoker", "Current smoker", "1 = smokes now"), ("cigsPerDay", "Cigarettes per day", "Average cigarettes smoked daily"),
+    ("BPMeds", "Blood-pressure medication", "1 = on BP medication"), ("prevalentStroke", "Prior stroke", "1 = has had a stroke"),
+    ("prevalentHyp", "Hypertension", "1 = diagnosed with high blood pressure"), ("diabetes", "Diabetes", "1 = diabetic"),
+    ("totChol", "Total cholesterol", "mg/dL"), ("sysBP", "Systolic blood pressure", "Pressure when the heart beats, mmHg"),
+    ("diaBP", "Diastolic blood pressure", "Pressure between beats, mmHg"), ("BMI", "Body mass index", "Weight (kg) / height (m) squared"),
+    ("heartRate", "Resting heart rate", "Beats per minute"), ("glucose", "Blood glucose", "mg/dL"),
+    ("TenYearCHD", "Outcome (target)", "1 = coronary heart disease within 10 years"),
+]
+TERM_GLOSSARY = [
+    ("CHD", "Coronary heart disease", "Narrowing of the arteries that feed the heart muscle; the outcome we predict."),
+    ("ANN / MLP", "Artificial neural network / multilayer perceptron", "A small network of layers of weighted units that learns non-linear patterns."),
+    ("XGBoost", "Extreme gradient boosting", "Many small decision trees built one after another, each fixing the last one's errors."),
+    ("RF", "Random forest", "Many decision trees trained on random subsets whose votes are averaged."),
+    ("LR", "Logistic regression", "A linear model that turns a weighted sum of factors into a probability."),
+    ("CV", "Cross-validation", "Splitting the training data into folds, training on some and scoring on the rest, to estimate performance fairly."),
+    ("AUC / ROC-AUC", "Area under the ROC curve", "Chance that a random CHD patient gets a higher risk than a random healthy one. 0.5 = coin flip, 1.0 = perfect."),
+    ("PR-AUC", "Area under the precision-recall curve", "Like AUC but focused on the rare positive class; useful when CHD is uncommon."),
+    ("Sensitivity / Recall", "True-positive rate", "Share of people who develop CHD that the model flags."),
+    ("Specificity", "True-negative rate", "Share of healthy people the model correctly leaves unflagged."),
+    ("Precision", "Positive predictive value", "Of the people flagged, the share who really develop CHD."),
+    ("F1", "F1 score", "Harmonic mean of precision and recall."),
+    ("Youden's J", "Sensitivity + specificity - 1", "Used to pick the threshold that best balances catching cases against false alarms."),
+    ("Threshold", "Decision cut-off", "Predicted risk above which a person is flagged for follow-up."),
+    ("TP / FP / TN / FN", "Confusion-matrix cells", "True/false positives and negatives: correct flags, false alarms, correct all-clears, missed cases."),
+    ("Brier score", "Probability error", "Mean squared gap between predicted risk and outcome. Lower is better."),
+    ("Calibration", "Probability honesty", "Whether 20% predicted risk really means about 20 in 100 develop CHD."),
+    ("Data leakage", "Test information leaking into training", "Avoided by learning medians and scaling from training data only."),
+    ("Imputation", "Filling missing values", "Median for numbers, mode for categories, plus a missing-glucose flag."),
+]
+HOW_STEPS = [
+    ("1. Collect", "Load the Framingham Heart Study extract (about 4,240 patients, 15 risk factors, outcome `TenYearCHD`) and audit missing values and duplicates."),
+    ("2. Split", "Hold out 20% of patients as a locked test set, keeping the same CHD rate in both parts (stratified)."),
+    ("3. Clean", "Impute gaps and standardise numeric columns. Everything is learned from the training split only, and refit inside every CV fold, so nothing leaks."),
+    ("4. Train", "Fit four pipelines: logistic regression, random forest, XGBoost and a PyTorch ANN. No class weighting, so probabilities stay interpretable."),
+    ("5. Validate", "5-fold cross-validation gives out-of-fold predictions. The threshold maximises Youden's J on them, and the served model is chosen by CV AUC alone."),
+    ("6. Test", "Each model is scored once on the untouched test set, which is the honest final check."),
+    ("7. Explain", "For one patient each factor is swapped to a typical value to show what pushes risk up or down."),
+    ("8. Serve", "Portable artifacts (weights and preprocessing parameters as JSON/CSV) are read by this dashboard, which needs no custom classes."),
+]
+
+
+def final_verdict(R, serving):
+    """Plain-language comparison built only from the metrics in metrics.json (so it always matches the data)."""
+    names = list(R)
+    top = lambda key, part: max(names, key=lambda n: R[n][part][key])
+    cv_best, auc_best = top("roc_auc", "cv"), top("roc_auc", "test")
+    sens_best, spec_best = top("recall_sensitivity", "test"), top("specificity", "test")
+    f1_best, brier_best = top("f1", "test"), min(names, key=lambda n: R[n]["test"]["brier"])
+    spread = max(R[n]["cv"]["roc_auc"] for n in names) - min(R[n]["cv"]["roc_auc"] for n in names)
+    rows = [("Best cross-validated AUC (model selection)", cv_best, R[cv_best]["cv"]["roc_auc"]),
+            ("Best test AUC", auc_best, R[auc_best]["test"]["roc_auc"]),
+            ("Highest sensitivity (catches most CHD)", sens_best, R[sens_best]["test"]["recall_sensitivity"]),
+            ("Highest specificity (fewest false alarms)", spec_best, R[spec_best]["test"]["specificity"]),
+            ("Best F1", f1_best, R[f1_best]["test"]["f1"]),
+            ("Lowest Brier score (best probabilities)", brier_best, R[brier_best]["test"]["brier"])]
+    text = (f"**{serving}** is served: it has the best cross-validated AUC ({R[serving]['cv']['roc_auc']:.3f}) and was picked before the test set was opened. "
+            f"The {len(names)} models sit within {spread:.3f} AUC of each other in cross-validation, so the gaps are small relative to the test set's noise of about ±0.03. "
+            f"{'No model wins every metric, and a simpler, more explainable model is preferred when accuracy is this close.' if len({r[1] for r in rows}) > 1 else 'It also leads on every metric above.'}")
+    return rows, text
 
 
 # ====================================================================== page: models
@@ -902,13 +1013,16 @@ def page_models(serving):
     sel = st.segmented_control("Inspect a model", NAMES, default=serving, key="inspect") or serving
     a, b = st.columns(2, gap="large")
     a.plotly_chart(picto_fig(sel), theme=None, key="picto")
+    explain("picto", a)
     per = per_hundred(R[sel]["test"]["confusion"])
     a.caption(f"About **{per[2] + per[3]}** of these 100 develop CHD. The model catches **{per[3]}** and misses **{per[2]}**. "
               f"Of the **{per[0] + per[1]}** who stay healthy it flags **{per[1]}** anyway.")
     b.markdown("##### Confusion matrix (test set)")
     b.plotly_chart(confusion_fig(sel), theme=None, key="conf")
+    explain("conf", b)
     b.markdown("##### Detection quality")
     b.plotly_chart(meters_fig(sel), theme=None, key="meters")
+    explain("meters", b)
 
     st.subheader("Threshold explorer")
     st.caption("Drag the threshold to see the trade-off. A lower threshold catches more CHD cases but raises more false alarms.")
@@ -921,20 +1035,35 @@ def page_models(serving):
     m[2].metric("Precision", f"{row.prec:.0%}")
     m[3].metric("Patients flagged", f"{row.flag:.0%}")
     st.plotly_chart(threshold_fig(sel, t), theme=None, key="thrfig")
+    explain("thrfig", st)
 
     st.subheader("Model comparison")
     st.plotly_chart(curves_fig(), theme=None, key="curves")
+    explain("curves", st)
     a, b = st.columns(2, gap="large")
     a.plotly_chart(auc_fig(), theme=None, key="auc")
+    explain("auc", a)
     b.plotly_chart(radar_fig(), theme=None, key="radar")
+    explain("radar", b)
     st.subheader("Full metrics")
     table = pd.DataFrame([{"Model": n, "CV AUC": R[n]["cv"]["roc_auc"], "Test AUC": R[n]["test"]["roc_auc"], "Test PR-AUC": R[n]["test"]["pr_auc"],
                            "Sensitivity": R[n]["test"]["recall_sensitivity"], "Specificity": R[n]["test"]["specificity"],
                            "Precision": R[n]["test"]["precision"], "F1": R[n]["test"]["f1"], "Threshold": R[n]["cv"]["threshold"]} for n in NAMES]).set_index("Model")
     st.dataframe(table.style.background_gradient(cmap="RdYlGn", axis=0).format("{:.3f}"), width="stretch")
+    st.subheader("Final results: which model wins?")
+    rows, verdict = final_verdict(R, serving)
+    st.success(verdict)
+    st.dataframe(pd.DataFrame([{"Criterion": c, "Winner": w, "Value": v} for c, w, v in rows]).set_index("Criterion").style.format({"Value": "{:.3f}"}), width="stretch")
+    fin = pd.DataFrame([{"Model": n, "Rank (CV AUC)": 0, "CV AUC": R[n]["cv"]["roc_auc"], "Test AUC": R[n]["test"]["roc_auc"],
+                         "Sensitivity": R[n]["test"]["recall_sensitivity"], "Specificity": R[n]["test"]["specificity"],
+                         "Brier": R[n]["test"]["brier"]} for n in NAMES])
+    fin["Rank (CV AUC)"] = fin["CV AUC"].rank(ascending=False).astype(int)
+    st.dataframe(fin.sort_values("Rank (CV AUC)").set_index("Model").style.format({c: "{:.3f}" for c in fin.columns[2:]}), width="stretch")
     a, b = st.columns(2, gap="large")
     a.plotly_chart(importance_fig(), theme=None, key="imp")
+    explain("imp", a)
     b.plotly_chart(ann_fig(), theme=None, key="ann")
+    explain("ann", b)
 
 
 # ====================================================================== page: about
@@ -948,6 +1077,18 @@ def page_about():
     for i, (col, (t, d, c)) in enumerate(zip(cols, steps)):
         col.markdown(f"<div class='step' style='background:linear-gradient(145deg,{c},{c}cc);animation-delay:{i * 0.12}s'><div class='n'>{i + 1}</div><b>{t}</b><span>{d}</span></div>", unsafe_allow_html=True)
     st.write("")
+    with st.expander("Step-by-step: how it works in detail"):
+        for t, d in HOW_STEPS:
+            st.markdown(f"**{t}** {d}")
+    g1, g2 = st.tabs(["📖 Abbreviations & terms", "🧾 Dataset columns"])
+    with g1:
+        q = st.text_input("Search terms", placeholder="e.g. AUC, sensitivity, CV", key="gloss_q")
+        gt = pd.DataFrame(TERM_GLOSSARY, columns=["Abbreviation", "Stands for", "Meaning"])
+        if q:
+            gt = gt[gt.apply(lambda r: q.lower() in " ".join(r).lower(), axis=1)]
+        st.dataframe(gt.set_index("Abbreviation"), width="stretch")
+    with g2:
+        st.dataframe(pd.DataFrame(FEATURE_GLOSSARY, columns=["Column", "Meaning", "Detail"]).set_index("Column"), width="stretch")
     a, b = st.columns(2, gap="large")
     with a:
         st.markdown("#### Questions")
