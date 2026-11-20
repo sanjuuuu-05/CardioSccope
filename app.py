@@ -334,6 +334,8 @@ def style(fig, h=380, legend=True):
 
 
 EXPLAIN = {
+    'prep_missing': ('Missing values before and after', 'Blue bars count the blank cells in each column of the raw data and orange bars count them after the preprocessing rules are applied. After imputation every column reaches zero, so the models never see a gap, and the model-ready table keeps one extra column, glucose_missing, that remembers where glucose was blank.'),
+    'prep_scale': ('Before vs after standardising', 'The same column plotted on its original scale (left) and after imputing and standardising (right). The shape is unchanged, but the values are re-centred on 0 with a spread of 1 using the training-set mean and standard deviation. This puts age, cholesterol and blood pressure on a common scale so no model is dominated by a large-valued column.'),
     'gauge': ('Risk gauge', "The needle shows the model's estimated chance of coronary heart disease within 10 years for the profile you entered. Background bands run green (low) to yellow, orange, red and purple (very high). The blue marker is the average risk in the study cohort, so a needle past it means above-average risk."),
     'factors': ('What moves this result', 'Each bar shows how much one factor changes your risk compared with a typical patient, in percentage points. Red bars push risk up, green bars pull it down, and the longest bars matter most. It is found by swapping one factor at a time to the typical value and re-scoring, so it describes this model, not cause and effect.'),
     'cmp': ('Same patient, four models', 'The same profile scored by all four models. If the bars are close, the models agree and the estimate is stable. A large gap means the profile sits where the models extrapolate differently, so treat the number with more caution.'),
@@ -996,6 +998,76 @@ def final_verdict(R, serving):
     return rows, text
 
 
+
+# ====================================================================== page: preprocessing
+def page_prep():
+    st.markdown("### Data preprocessing")
+    st.caption("Raw clinical data has gaps and very different scales. These steps make it model-ready, and every number below was learned from the training split only.")
+    df = load_data()
+    X = df[FEATURES]
+    Z = pd.DataFrame(prep_transform(X, PRM), columns=PRM["features_out"])
+    n_tr = int(round(len(df) * 0.8))
+    m = st.columns(4)
+    m[0].metric("Patients", f"{len(df):,}")
+    m[1].metric("Columns used", f"{len(FEATURES)} → {len(PRM['features_out'])}")
+    m[2].metric("Rows with a gap", f"{X.isna().any(axis=1).mean():.0%}")
+    m[3].metric("Train / test", f"{n_tr:,} / {len(df) - n_tr:,}")
+
+    steps = [("1. Remove duplicates & coerce to numbers", "Exact duplicate rows are dropped and every column is converted to numeric, so stray text becomes a blank instead of an error."),
+             ("2. Split first", "80% train / 20% test, stratified so both keep the same CHD rate. Nothing below is learned from the test rows."),
+             ("3. Fix logical gaps", "A non-smoker with no cigarette count gets 0. A smoker with no count gets the smoker median."),
+             ("4. Flag missing glucose", "Glucose is missing most often, so a 0/1 column `glucose_missing` is added to keep that signal."),
+             ("5. Impute the rest", "Numeric gaps get the training median and yes/no or education gaps get the training mode."),
+             ("6. Standardise", "Continuous columns are rescaled to mean 0 and standard deviation 1 using training statistics."),
+             ("7. Refit inside every CV fold", "The preprocessor is part of each model's pipeline, so cross-validation never leaks information from held-out folds.")]
+    for t, d in steps:
+        st.markdown(f"**{t}** {d}")
+
+    st.subheader("Missing values before and after")
+    raw_m = X.isna().sum()
+    after = pd.Series(Z[PRM["features"]].isna().sum())
+    cols = [c for c in FEATURES if raw_m[c] > 0]
+    fig = go.Figure()
+    fig.add_bar(x=[LABELS[c] for c in cols], y=[int(raw_m[c]) for c in cols], name="Raw data", marker_color="#4361ee", text=[int(raw_m[c]) for c in cols], textposition="outside")
+    fig.add_bar(x=[LABELS[c] for c in cols], y=[int(after[c]) for c in cols], name="After preprocessing", marker_color="#fb8500", text=[int(after[c]) for c in cols], textposition="outside")
+    fig.update_yaxes(title="missing values").update_layout(barmode="group")
+    st.plotly_chart(style(fig, 380), theme=None, key="prep_missing")
+    explain("prep_missing", st)
+
+    st.subheader("Values the pipeline learned from the training data")
+    a, b = st.columns(2, gap="large")
+    fill = pd.DataFrame({"Column": [LABELS[c] for c in PRM["medians"]], "Fill value (median)": list(PRM["medians"].values())}).set_index("Column")
+    modes = pd.DataFrame({"Column": [LABELS[c] for c in PRM["modes"]], "Fill value (mode)": list(PRM["modes"].values())}).set_index("Column")
+    a.markdown("##### Medians for numeric gaps")
+    a.dataframe(fill.style.format("{:.2f}"), width="stretch")
+    a.caption(f"Smokers with no cigarette count get **{PRM['smoker_cigs_median']:g}** per day.")
+    b.markdown("##### Modes for yes/no and education gaps")
+    b.dataframe(modes.style.format("{:.0f}"), width="stretch")
+    sc = pd.DataFrame({"Column": [LABELS[c] for c in PRM["continuous"]], "Mean": PRM["scaler_mean"], "Std dev": PRM["scaler_scale"]}).set_index("Column")
+    b.markdown("##### Scaling statistics")
+    b.dataframe(sc.style.format("{:.2f}"), width="stretch")
+
+    st.subheader("Before and after on real rows")
+    gaps = df[X.isna().any(axis=1)].head(200)
+    k = st.slider("Show rows with gaps", 1, 8, 4, key="prep_rows")
+    sel = gaps.index[:k]
+    a, b = st.columns(2, gap="large")
+    a.markdown("##### Raw (blanks shown as None)")
+    a.dataframe(X.loc[sel].rename(columns=LABELS), width="stretch")
+    b.markdown("##### Model-ready (imputed + scaled)")
+    b.dataframe(Z.loc[sel].rename(columns=LABELS).style.format("{:.2f}"), width="stretch")
+
+    st.subheader("Effect of standardising")
+    col = st.selectbox("Column", CONTINUOUS, format_func=lambda c: LABELS[c], key="prep_col")
+    fig = make_subplots(rows=1, cols=2, subplot_titles=["Original scale (gaps dropped)", "After imputing + standardising"])
+    fig.add_trace(go.Histogram(x=X[col].dropna(), marker_color="#4361ee", nbinsx=40, showlegend=False), row=1, col=1)
+    fig.add_trace(go.Histogram(x=Z[col], marker_color="#f72585", nbinsx=40, showlegend=False), row=1, col=2)
+    fig.update_yaxes(title_text="patients", row=1, col=1)
+    st.plotly_chart(style(fig, 340, False), theme=None, key="prep_scale")
+    explain("prep_scale", st)
+    st.info("The raw and model-ready values above are shown for the full cohort for illustration, using the parameters learned from the training split.")
+
+
 # ====================================================================== page: models
 @st.fragment
 def page_models(serving):
@@ -1125,11 +1197,13 @@ with st.sidebar:
     st.divider()
     st.caption(CARD["disclaimer"])
 
-t1, t2, t3, t4 = st.tabs(["🧮 Risk calculator", "📊 Data explorer", "🏆 Model performance", "ℹ️ About"])
+t1, t2, tp, t3, t4 = st.tabs(["🧮 Risk calculator", "📊 Data explorer", "🧹 Data preprocessing", "🏆 Model performance", "ℹ️ About"])
 with t1:
     page_risk(model_name)
 with t2:
     page_explore()
+with tp:
+    page_prep()
 with t3:
     page_models(CARD["best_model"])
 with t4:
