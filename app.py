@@ -110,6 +110,7 @@ button[data-baseweb="tab"]{font-size:1rem;font-weight:600}
 .step b{display:block;font-size:1.02rem}.step span{font-size:.82rem;opacity:.92}
 .live{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2ecc71;margin-right:7px;animation:pulse 2s infinite}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.stApp :not(pre)>code{background:transparent!important;color:inherit!important;padding:0!important;border:0!important;font-family:inherit!important;font-size:inherit!important}
 </style>
 """
 DARK = bool(st.session_state.get("dark", False))
@@ -967,7 +968,7 @@ TERM_GLOSSARY = [
     ("Imputation", "Filling missing values", "Median for numbers, mode for categories, plus a missing-glucose flag."),
 ]
 HOW_STEPS = [
-    ("1. Collect", "Load the Framingham Heart Study extract (about 4,240 patients, 15 risk factors, outcome `TenYearCHD`) and audit missing values and duplicates."),
+    ("1. Collect", "Load the Framingham Heart Study extract (about 4,240 patients, 15 risk factors, outcome TenYearCHD) and audit missing values and duplicates."),
     ("2. Split", "Hold out 20% of patients as a locked test set, keeping the same CHD rate in both parts (stratified)."),
     ("3. Clean", "Impute gaps and standardise numeric columns. Everything is learned from the training split only, and refit inside every CV fold, so nothing leaks."),
     ("4. Train", "Fit four pipelines: logistic regression, random forest, XGBoost and a PyTorch ANN. No class weighting, so probabilities stay interpretable."),
@@ -1016,7 +1017,7 @@ def page_prep():
     steps = [("1. Remove duplicates & coerce to numbers", "Exact duplicate rows are dropped and every column is converted to numeric, so stray text becomes a blank instead of an error."),
              ("2. Split first", "80% train / 20% test, stratified so both keep the same CHD rate. Nothing below is learned from the test rows."),
              ("3. Fix logical gaps", "A non-smoker with no cigarette count gets 0. A smoker with no count gets the smoker median."),
-             ("4. Flag missing glucose", "Glucose is missing most often, so a 0/1 column `glucose_missing` is added to keep that signal."),
+             ("4. Flag missing glucose", "Glucose is missing most often, so a 0/1 column named glucose_missing is added to keep that signal."),
              ("5. Impute the rest", "Numeric gaps get the training median and yes/no or education gaps get the training mode."),
              ("6. Standardise", "Continuous columns are rescaled to mean 0 and standard deviation 1 using training statistics."),
              ("7. Refit inside every CV fold", "The preprocessor is part of each model's pipeline, so cross-validation never leaks information from held-out folds.")]
