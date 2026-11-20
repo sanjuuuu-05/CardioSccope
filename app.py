@@ -959,6 +959,14 @@ def page_explore():
 
 
 
+# ====================================================================== project overview content
+WORKFLOW_DOT = 'digraph G { rankdir=LR; bgcolor="transparent"; node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, color="#4361ee", fillcolor="#eef1ff", fontcolor="#111827"]; edge [color="#8a93a6"];\n raw [label="framingham.csv\\n4,240 patients"]; split [label="Stratified split\\n80% train / 20% test"]; prep [label="Preprocessing\\nimpute + flag + scale\\n(train only)"]; \n lr [label="Logistic\\nRegression"]; rf [label="Random\\nForest"]; xgb [label="XGBoost"]; ann [label="ANN (MLP)\\nPyTorch"]; cv [label="5-fold CV\\nAUC + Youden threshold"]; test [label="Held-out test\\nmetrics + plots"]; art [label="Saved artifacts\\nJSON / CSV / weights"]; app [label="Streamlit dashboard\\ncalculator, explorer,\\nperformance, about", fillcolor="#ffe8f1", color="#f72585"];\n raw -> split -> prep; prep -> lr; prep -> rf; prep -> xgb; prep -> ann; lr -> cv; rf -> cv; xgb -> cv; ann -> cv; cv -> test -> art -> app; }'
+OVERVIEW = {'problem': "Cardiovascular disease is the leading cause of death worldwide, and coronary heart disease is a major part of it. Clinicians need a quick, explainable estimate of a patient's 10-year risk from routine measurements so that prevention can be targeted. The problem is binary classification: given 15 recorded risk factors, predict whether a patient develops CHD within ten years (TenYearCHD). Only about one patient in seven has the outcome, and some measurements are missing, so the project must handle class imbalance and gaps carefully.", 'motivation': 'Early identification of high-risk people lets lifestyle change and treatment start sooner. Established risk scores exist, but a transparent machine-learning pipeline with a clear comparison of model types, honest validation and per-patient explanations shows what modern methods add and where they do not.', 'scope': 'In scope: the public Framingham extract of about 4,240 patients, four models, cross-validation, threshold selection, explanations and a dashboard. Out of scope: clinical validation, other populations, imaging or genetic data, and any use for real diagnosis.'}
+OBJECTIVES = ['Build a 10-year coronary heart disease (CHD) risk predictor from the Framingham cohort using classical machine learning and an artificial neural network.', 'Prepare the data without leakage: stratified split first, then imputation and scaling learned from the training data only.', 'Compare four models (logistic regression, random forest, XGBoost, ANN) with 5-fold cross-validation and one final held-out test.', "Choose the decision threshold with Youden's J and judge models on AUC, sensitivity, specificity, precision, F1 and calibration.", 'Explain each prediction to the user and deliver everything in an interactive Streamlit dashboard.']
+FUTURE_SCOPE = ['Tune hyperparameters more widely (randomised or Bayesian search) and re-check the model ranking.', 'Engineer extra features, for example pulse pressure and mean arterial pressure, and test their value under cross-validation.', 'Calibrate probabilities (isotonic or Platt scaling) so that predicted risk matches observed rates more closely.', 'Validate on an independent cohort and add subgroup fairness checks by sex and age.', 'Add model-agnostic explainers such as SHAP and a confidence range on each prediction.']
+REFERENCES = ['Dawber TR, Meadors GF, Moore FE Jr. Epidemiological approaches to heart disease: the Framingham Study. American Journal of Public Health. 1951;41(3):279-286.', "D'Agostino RB Sr, Vasan RS, Pencina MJ, et al. General cardiovascular risk profile for use in primary care: the Framingham Heart Study. Circulation. 2008;117(6):743-753.", 'Breiman L. Random forests. Machine Learning. 2001;45(1):5-32.', 'Chen T, Guestrin C. XGBoost: a scalable tree boosting system. Proceedings of the 22nd ACM SIGKDD Conference. 2016:785-794.', 'Pedregosa F, et al. Scikit-learn: machine learning in Python. Journal of Machine Learning Research. 2011;12:2825-2830.', 'Paszke A, et al. PyTorch: an imperative style, high-performance deep learning library. Advances in Neural Information Processing Systems 32. 2019.', 'Loshchilov I, Hutter F. Decoupled weight decay regularization (AdamW). International Conference on Learning Representations. 2019.', 'Youden WJ. Index for rating diagnostic tests. Cancer. 1950;3(1):32-35.', 'Hanley JA, McNeil BJ. The meaning and use of the area under a receiver operating characteristic (ROC) curve. Radiology. 1982;143(1):29-36.', 'Saito T, Rehmsmeier M. The precision-recall plot is more informative than the ROC plot when evaluating binary classifiers on imbalanced datasets. PLoS ONE. 2015;10(3):e0118432.']
+
+
 # ====================================================================== glossary & final-results content
 FEATURE_GLOSSARY = [
     ("male", "Sex", "1 = male, 0 = female"), ("age", "Age", "Age in years at the first exam"),
@@ -1184,6 +1192,22 @@ def page_models(serving):
 
 # ====================================================================== page: about
 def page_about():
+    st.markdown("### Project overview")
+    o1, o2 = st.columns(2, gap="large")
+    with o1:
+        st.markdown("#### Problem statement")
+        st.write(OVERVIEW["problem"])
+        st.markdown("#### Motivation")
+        st.write(OVERVIEW["motivation"])
+    with o2:
+        st.markdown("#### Objectives")
+        st.markdown("\n".join(f"{i}. {t}" for i, t in enumerate(OBJECTIVES, 1)))
+        st.markdown("#### Scope")
+        st.write(OVERVIEW["scope"])
+    st.markdown("#### Workflow and system architecture")
+    st.graphviz_chart(WORKFLOW_DOT, width="stretch")
+    st.caption("Data flows left to right. The test set is touched once, after models and thresholds are chosen on cross-validation.")
+    st.divider()
     st.markdown("### How CardioScope works")
     st.caption("From raw cohort data to a prediction in six steps. Every step only uses information it is allowed to see.")
     steps = [("Collect", "4,240 patients, 15 risk factors, one 10-year outcome", "#4361ee"), ("Split", "80 / 20 stratified. The test set stays locked away", "#7209b7"),
@@ -1222,10 +1246,15 @@ def page_about():
                     "- Probabilities are not calibrated for individuals, and hyperparameters were not tuned.\n"
                     "- Moderate discrimination means many people flagged high risk will not develop CHD.\n"
                     f"- {CARD['disclaimer']}")
+        st.markdown("#### Future scope")
+        st.markdown("\n".join(f"- {t}" for t in FUTURE_SCOPE))
         st.markdown("#### Reproduce")
         st.code("1. Run all cells of CardioScope_EndToEnd.ipynb  (trains, evaluates, writes artifacts/)\n2. streamlit run streamlit_app.py", language="text")
         v = CARD["versions"]
         st.caption(f"Trained {CARD['trained_at'][:10]} · scikit-learn {v['scikit-learn']} · xgboost {v['xgboost']} · torch {v['torch']}")
+    st.divider()
+    st.markdown("### References")
+    st.markdown("\n".join(f"{i}. {r}" for i, r in enumerate(REFERENCES, 1)))
 
 
 # ====================================================================== main
