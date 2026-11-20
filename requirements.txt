@@ -1,0 +1,14 @@
+# --- Dashboard (streamlit_app.py) ---
+streamlit>=1.40
+plotly>=5.24
+numpy>=1.26
+pandas>=2.2
+scikit-learn==1.9.1   # pinned: the saved Random Forest / Logistic Regression files must load with the same version
+xgboost>=2.1
+torch>=2.2            # large download; on a host with limited space use the CPU build (see README note)
+joblib>=1.4
+
+# --- Only needed to re-run CardioScope_EndToEnd.ipynb ---
+matplotlib>=3.8
+seaborn>=0.13
+notebook
