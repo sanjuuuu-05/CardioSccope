@@ -1,0 +1,92 @@
+[
+  {
+    "feature": "age",
+    "label": "Age",
+    "importance": 0.0771,
+    "std": 0.01592
+  },
+  {
+    "feature": "cigsPerDay",
+    "label": "Cigarettes per day",
+    "importance": 0.02405,
+    "std": 0.00635
+  },
+  {
+    "feature": "male",
+    "label": "Sex (male)",
+    "importance": 0.02116,
+    "std": 0.00806
+  },
+  {
+    "feature": "sysBP",
+    "label": "Systolic BP",
+    "importance": 0.01985,
+    "std": 0.0081
+  },
+  {
+    "feature": "prevalentHyp",
+    "label": "Hypertension",
+    "importance": 0.00279,
+    "std": 0.00227
+  },
+  {
+    "feature": "glucose",
+    "label": "Glucose",
+    "importance": 0.00249,
+    "std": 0.00343
+  },
+  {
+    "feature": "education",
+    "label": "Education",
+    "importance": 0.00016,
+    "std": 0.00022
+  },
+  {
+    "feature": "BMI",
+    "label": "BMI",
+    "importance": 0.00016,
+    "std": 0.0002
+  },
+  {
+    "feature": "diabetes",
+    "label": "Diabetes",
+    "importance": 0.00014,
+    "std": 0.00064
+  },
+  {
+    "feature": "heartRate",
+    "label": "Heart rate",
+    "importance": 0.00014,
+    "std": 0.00104
+  },
+  {
+    "feature": "diaBP",
+    "label": "Diastolic BP",
+    "importance": -9e-05,
+    "std": 0.00066
+  },
+  {
+    "feature": "prevalentStroke",
+    "label": "Previous stroke",
+    "importance": -0.00071,
+    "std": 0.00106
+  },
+  {
+    "feature": "currentSmoker",
+    "label": "Current smoker",
+    "importance": -0.00076,
+    "std": 0.0003
+  },
+  {
+    "feature": "BPMeds",
+    "label": "BP medication",
+    "importance": -0.0008,
+    "std": 0.00172
+  },
+  {
+    "feature": "totChol",
+    "label": "Total cholesterol",
+    "importance": -0.00095,
+    "std": 0.00303
+  }
+]

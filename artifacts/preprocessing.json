@@ -1,0 +1,87 @@
+{
+  "features": [
+    "male",
+    "age",
+    "education",
+    "currentSmoker",
+    "cigsPerDay",
+    "BPMeds",
+    "prevalentStroke",
+    "prevalentHyp",
+    "diabetes",
+    "totChol",
+    "sysBP",
+    "diaBP",
+    "BMI",
+    "heartRate",
+    "glucose"
+  ],
+  "features_out": [
+    "male",
+    "age",
+    "education",
+    "currentSmoker",
+    "cigsPerDay",
+    "BPMeds",
+    "prevalentStroke",
+    "prevalentHyp",
+    "diabetes",
+    "totChol",
+    "sysBP",
+    "diaBP",
+    "BMI",
+    "heartRate",
+    "glucose",
+    "glucose_missing"
+  ],
+  "continuous": [
+    "age",
+    "cigsPerDay",
+    "totChol",
+    "sysBP",
+    "diaBP",
+    "BMI",
+    "heartRate",
+    "glucose"
+  ],
+  "medians": {
+    "age": 49.0,
+    "cigsPerDay": 0.0,
+    "totChol": 234.0,
+    "sysBP": 128.0,
+    "diaBP": 82.0,
+    "BMI": 25.38,
+    "heartRate": 75.0,
+    "glucose": 78.0
+  },
+  "modes": {
+    "male": 0.0,
+    "currentSmoker": 0.0,
+    "BPMeds": 0.0,
+    "prevalentStroke": 0.0,
+    "prevalentHyp": 0.0,
+    "diabetes": 0.0,
+    "education": 1.0
+  },
+  "smoker_cigs_median": 20.0,
+  "scaler_mean": [
+    49.66391509433962,
+    9.094634433962264,
+    236.67010613207546,
+    132.43985849056602,
+    82.8841391509434,
+    25.82453419811321,
+    75.89121462264151,
+    81.58844339622641
+  ],
+  "scaler_scale": [
+    8.571715760985699,
+    11.929191422856535,
+    43.953501939797185,
+    22.032912045109295,
+    11.892166919728076,
+    4.115372293105302,
+    12.007206687643308,
+    22.955488274410705
+  ]
+}

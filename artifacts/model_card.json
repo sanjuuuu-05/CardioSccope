@@ -1,0 +1,72 @@
+{
+  "best_model": "Logistic Regression",
+  "thresholds": {
+    "Logistic Regression": 0.1552,
+    "Random Forest": 0.1431,
+    "XGBoost": 0.1596,
+    "ANN (MLP)": 0.1774
+  },
+  "base_rate": 0.1518,
+  "reference_profile": {
+    "male": 0.0,
+    "age": 49.0,
+    "education": 1.0,
+    "currentSmoker": 0.0,
+    "cigsPerDay": 0.0,
+    "BPMeds": 0.0,
+    "prevalentStroke": 0.0,
+    "prevalentHyp": 0.0,
+    "diabetes": 0.0,
+    "totChol": 234.0,
+    "sysBP": 128.0,
+    "diaBP": 82.0,
+    "BMI": 25.38,
+    "heartRate": 75.0,
+    "glucose": 78.0
+  },
+  "risk_bands": {
+    "low_below": 0.1,
+    "high_from": 0.2
+  },
+  "model_files": {
+    "Logistic Regression": "models/logistic_regression.joblib",
+    "Random Forest": "models/random_forest.joblib",
+    "XGBoost": "models/xgboost.json",
+    "ANN (MLP)": "models/ann_mlp.pt"
+  },
+  "model_colors": {
+    "Logistic Regression": "#4361ee",
+    "Random Forest": "#2a9d8f",
+    "XGBoost": "#fb8500",
+    "ANN (MLP)": "#e5383b"
+  },
+  "labels": {
+    "male": "Sex (male)",
+    "age": "Age",
+    "education": "Education",
+    "currentSmoker": "Current smoker",
+    "cigsPerDay": "Cigarettes per day",
+    "BPMeds": "BP medication",
+    "prevalentStroke": "Previous stroke",
+    "prevalentHyp": "Hypertension",
+    "diabetes": "Diabetes",
+    "totChol": "Total cholesterol",
+    "sysBP": "Systolic BP",
+    "diaBP": "Diastolic BP",
+    "BMI": "BMI",
+    "heartRate": "Heart rate",
+    "glucose": "Glucose"
+  },
+  "n_train": 3392,
+  "n_test": 848,
+  "trained_at": "2026-11-16T03:26:16+00:00",
+  "selection_rule": "highest 5-fold CV ROC AUC on the training split; test set not used for selection",
+  "threshold_rule": "Youden J on out-of-fold training predictions",
+  "versions": {
+    "python": "3.13.18",
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.4.1",
+    "torch": "2.15.0+cu132"
+  },
+  "disclaimer": "Educational project built on the Framingham cohort. Not a medical device and not a substitute for clinical judgement."
+}
