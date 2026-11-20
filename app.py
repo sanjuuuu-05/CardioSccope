@@ -663,25 +663,47 @@ def meters_fig(name):
 
 
 @st.cache_data
-def curves_fig(models=None, h=420):
+def curves_fig(models=None, h=420, only=None):
+    """only=None draws ROC, precision-recall and calibration side by side; only='ROC'|'PR'|'Calibration' draws one full-width panel."""
     models = tuple(models or NAMES)
     p = load_preds()
     y = p["y"].to_numpy()
-    fig = make_subplots(rows=1, cols=3, subplot_titles=["ROC", "Precision-recall", "Calibration"], horizontal_spacing=0.08)
-    for k, n in enumerate(models):
+    kinds = ["ROC", "PR", "Calibration"] if only is None else [only]
+    titles = {"ROC": "ROC", "PR": "Precision-recall", "Calibration": "Calibration"}
+    fig = make_subplots(rows=1, cols=len(kinds), subplot_titles=[titles[k] for k in kinds], horizontal_spacing=0.08)
+    for n in models:
         s, col = p[slug(n)].to_numpy(), MODEL_COLORS[n]
-        f, t, _ = roc_curve(y, s)
-        fig.add_trace(go.Scatter(x=f, y=t, mode="lines", line=dict(color=col, width=3), name=n, legendgroup=n, showlegend=True), row=1, col=1)
-        pr, rc, _ = precision_recall_curve(y, s)
-        fig.add_trace(go.Scatter(x=rc, y=pr, mode="lines", line=dict(color=col, width=3), name=n, legendgroup=n, showlegend=False), row=1, col=2)
-        fr, mp = calibration_curve(y, s, n_bins=8, strategy="quantile")
-        fig.add_trace(go.Scatter(x=mp, y=fr, mode="lines+markers", line=dict(color=col, width=2.5), marker=dict(size=8), name=n, legendgroup=n, showlegend=False), row=1, col=3)
-    fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(color="gray", dash="dash"), showlegend=False), row=1, col=1)
-    fig.add_trace(go.Scatter(x=[0, 0.6], y=[0, 0.6], mode="lines", line=dict(color="gray", dash="dash"), showlegend=False), row=1, col=3)
-    fig.update_xaxes(title_text="1 − specificity", row=1, col=1).update_yaxes(title_text="sensitivity", row=1, col=1)
-    fig.update_xaxes(title_text="recall", row=1, col=2).update_yaxes(title_text="precision", row=1, col=2)
-    fig.update_xaxes(title_text="predicted risk", row=1, col=3).update_yaxes(title_text="observed CHD rate", row=1, col=3)
+        for j, kind in enumerate(kinds, start=1):
+            if kind == "ROC":
+                f, t, _ = roc_curve(y, s)
+                fig.add_trace(go.Scatter(x=f, y=t, mode="lines", line=dict(color=col, width=3), name=n, legendgroup=n, showlegend=(j == 1)), row=1, col=j)
+            elif kind == "PR":
+                pr, rc, _ = precision_recall_curve(y, s)
+                fig.add_trace(go.Scatter(x=rc, y=pr, mode="lines", line=dict(color=col, width=3), name=n, legendgroup=n, showlegend=(j == 1)), row=1, col=j)
+            else:
+                fr, mp = calibration_curve(y, s, n_bins=8, strategy="quantile")
+                fig.add_trace(go.Scatter(x=mp, y=fr, mode="lines+markers", line=dict(color=col, width=2.5), marker=dict(size=8), name=n, legendgroup=n, showlegend=(j == 1)), row=1, col=j)
+    for j, kind in enumerate(kinds, start=1):
+        if kind == "ROC":
+            fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(color="gray", dash="dash"), showlegend=False), row=1, col=j)
+            fig.update_xaxes(title_text="1 − specificity", row=1, col=j).update_yaxes(title_text="sensitivity", row=1, col=j)
+        elif kind == "PR":
+            fig.update_xaxes(title_text="recall", row=1, col=j).update_yaxes(title_text="precision", row=1, col=j)
+        else:
+            fig.add_trace(go.Scatter(x=[0, 0.6], y=[0, 0.6], mode="lines", line=dict(color="gray", dash="dash"), showlegend=False), row=1, col=j)
+            fig.update_xaxes(title_text="predicted risk", row=1, col=j).update_yaxes(title_text="observed CHD rate", row=1, col=j)
     return style(fig, h)
+
+
+def big_axes(fig):
+    """Expanded view: larger tick labels and titles, finer gridlines and visible axis lines so values can be read precisely."""
+    fig.update_xaxes(tickfont=dict(size=15), title_font=dict(size=17), showgrid=True, gridwidth=1, gridcolor="rgba(128,128,128,.25)",
+                     showline=True, linewidth=2, linecolor="#8a93a6", ticks="outside", ticklen=6, nticks=12, automargin=True)
+    fig.update_yaxes(tickfont=dict(size=15), title_font=dict(size=17), showgrid=True, gridwidth=1, gridcolor="rgba(128,128,128,.25)",
+                     showline=True, linewidth=2, linecolor="#8a93a6", ticks="outside", ticklen=6, nticks=12, automargin=True)
+    fig.update_annotations(font_size=18)
+    fig.update_layout(legend=dict(font=dict(size=15)), font=dict(size=15))
+    return fig
 
 
 @st.cache_data
@@ -1074,17 +1096,15 @@ def page_prep():
 
 @st.dialog("Model comparison: expanded view", width="large")
 def compare_dialog(shown):
-    st.caption("Showing: " + ", ".join(shown) + ". Close this panel with the × or Esc, then change the selection with the Show control.")
-    d1, d2, d3 = st.tabs(["ROC · Precision-recall · Calibration", "AUC: CV vs test", "Model profile"])
-    with d1:
-        st.plotly_chart(curves_fig(shown, 560), theme=None, key="x_curves")
-        explain("curves", st)
-    with d2:
-        st.plotly_chart(auc_fig(shown, 560), theme=None, key="x_auc")
-        explain("auc", st)
-    with d3:
-        st.plotly_chart(radar_fig(shown, 600), theme=None, key="x_radar")
-        explain("radar", st)
+    st.caption("Showing: " + ", ".join(shown) + ". Axes are enlarged for reading values. Close with the × or Esc, then change the selection with the Show control.")
+    tabs = st.tabs(["ROC", "Precision-recall", "Calibration", "AUC: CV vs test", "Model profile"])
+    figs = [("x_roc", "curves", big_axes(curves_fig(shown, 640, "ROC"))), ("x_pr", "curves", big_axes(curves_fig(shown, 640, "PR"))),
+            ("x_cal", "curves", big_axes(curves_fig(shown, 640, "Calibration"))), ("x_auc", "auc", big_axes(auc_fig(shown, 640))),
+            ("x_radar", "radar", big_axes(radar_fig(shown, 680)))]
+    for tab, (key, ex, fig) in zip(tabs, figs):
+        with tab:
+            st.plotly_chart(fig, theme=None, key=key)
+            explain(ex, st)
 
 
 # ====================================================================== page: models
