@@ -663,14 +663,15 @@ def meters_fig(name):
 
 
 @st.cache_data
-def curves_fig():
+def curves_fig(models=None, h=420):
+    models = tuple(models or NAMES)
     p = load_preds()
     y = p["y"].to_numpy()
     fig = make_subplots(rows=1, cols=3, subplot_titles=["ROC", "Precision-recall", "Calibration"], horizontal_spacing=0.08)
-    for n in NAMES:
+    for k, n in enumerate(models):
         s, col = p[slug(n)].to_numpy(), MODEL_COLORS[n]
         f, t, _ = roc_curve(y, s)
-        fig.add_trace(go.Scatter(x=f, y=t, mode="lines", line=dict(color=col, width=3), name=n, legendgroup=n), row=1, col=1)
+        fig.add_trace(go.Scatter(x=f, y=t, mode="lines", line=dict(color=col, width=3), name=n, legendgroup=n, showlegend=True), row=1, col=1)
         pr, rc, _ = precision_recall_curve(y, s)
         fig.add_trace(go.Scatter(x=rc, y=pr, mode="lines", line=dict(color=col, width=3), name=n, legendgroup=n, showlegend=False), row=1, col=2)
         fr, mp = calibration_curve(y, s, n_bins=8, strategy="quantile")
@@ -680,32 +681,34 @@ def curves_fig():
     fig.update_xaxes(title_text="1 − specificity", row=1, col=1).update_yaxes(title_text="sensitivity", row=1, col=1)
     fig.update_xaxes(title_text="recall", row=1, col=2).update_yaxes(title_text="precision", row=1, col=2)
     fig.update_xaxes(title_text="predicted risk", row=1, col=3).update_yaxes(title_text="observed CHD rate", row=1, col=3)
-    return style(fig, 420)
+    return style(fig, h)
 
 
 @st.cache_data
-def auc_fig():
+def auc_fig(models=None, h=400):
+    models = tuple(models or NAMES)
     R = load_json("metrics.json")["results"]
     fig = go.Figure()
-    fig.add_bar(x=NAMES, y=[R[n]["cv"]["roc_auc"] for n in NAMES], name="5-fold CV", marker_color=[MODEL_COLORS[n] for n in NAMES],
-                text=[f"{R[n]['cv']['roc_auc']:.3f}" for n in NAMES], textposition="outside")
-    fig.add_bar(x=NAMES, y=[R[n]["test"]["roc_auc"] for n in NAMES], name="Held-out test", marker=dict(color=[MODEL_COLORS[n] for n in NAMES], pattern=dict(shape="/")),
-                opacity=0.7, text=[f"{R[n]['test']['roc_auc']:.3f}" for n in NAMES], textposition="outside")
+    fig.add_bar(x=list(models), y=[R[n]["cv"]["roc_auc"] for n in models], name="5-fold CV", marker_color=[MODEL_COLORS[n] for n in models],
+                text=[f"{R[n]['cv']['roc_auc']:.3f}" for n in models], textposition="outside")
+    fig.add_bar(x=list(models), y=[R[n]["test"]["roc_auc"] for n in models], name="Held-out test", marker=dict(color=[MODEL_COLORS[n] for n in models], pattern=dict(shape="/")),
+                opacity=0.7, text=[f"{R[n]['test']['roc_auc']:.3f}" for n in models], textposition="outside")
     fig.update_yaxes(range=[0.5, 0.8], title="ROC AUC").update_layout(barmode="group")
-    return style(fig, 400).update_layout(title="Cross-validation (solid) vs test (hatched)")
+    return style(fig, h).update_layout(title="Cross-validation (solid) vs test (hatched)")
 
 
 @st.cache_data
-def radar_fig():
+def radar_fig(models=None, h=420):
+    models = tuple(models or NAMES)
     R = load_json("metrics.json")["results"]
     axes = ["Sensitivity", "Specificity", "Balanced accuracy", "Test AUC", "CV AUC"]
     fig = go.Figure()
-    for n in NAMES:
+    for n in models:
         r = R[n]
         v = [r["test"]["recall_sensitivity"], r["test"]["specificity"], r["test"]["balanced_accuracy"], r["test"]["roc_auc"], r["cv"]["roc_auc"]]
         fig.add_trace(go.Scatterpolar(r=v + v[:1], theta=axes + axes[:1], fill="toself", name=n, line=dict(color=MODEL_COLORS[n], width=3), opacity=0.55))
     fig.update_layout(polar=dict(radialaxis=dict(range=[0.5, 0.75], tickformat=".2f")))
-    return style(fig, 420).update_layout(title="Model profile (centre = 0.5, a coin flip)")
+    return style(fig, h).update_layout(title="Model profile (centre = 0.5, a coin flip)")
 
 
 @st.cache_data
@@ -1069,6 +1072,21 @@ def page_prep():
     st.info("The raw and model-ready values above are shown for the full cohort for illustration, using the parameters learned from the training split.")
 
 
+@st.dialog("Model comparison: expanded view", width="large")
+def compare_dialog(shown):
+    st.caption("Showing: " + ", ".join(shown) + ". Close this panel with the × or Esc, then change the selection with the Show control.")
+    d1, d2, d3 = st.tabs(["ROC · Precision-recall · Calibration", "AUC: CV vs test", "Model profile"])
+    with d1:
+        st.plotly_chart(curves_fig(shown, 560), theme=None, key="x_curves")
+        explain("curves", st)
+    with d2:
+        st.plotly_chart(auc_fig(shown, 560), theme=None, key="x_auc")
+        explain("auc", st)
+    with d3:
+        st.plotly_chart(radar_fig(shown, 600), theme=None, key="x_radar")
+        explain("radar", st)
+
+
 # ====================================================================== page: models
 @st.fragment
 def page_models(serving):
@@ -1111,12 +1129,17 @@ def page_models(serving):
     explain("thrfig", st)
 
     st.subheader("Model comparison")
-    st.plotly_chart(curves_fig(), theme=None, key="curves")
+    c1, c2 = st.columns([4, 1], vertical_alignment="bottom")
+    view = c1.segmented_control("Show", ["All models"] + NAMES, default="All models", key="cmp_view", help="Pick one model to see only its curves and bars.") or "All models"
+    shown = tuple(NAMES) if view == "All models" else (view,)
+    if c2.button("⛶ Expanded view", key="cmp_expand", width="stretch"):
+        compare_dialog(shown)
+    st.plotly_chart(curves_fig(shown), theme=None, key="curves")
     explain("curves", st)
     a, b = st.columns(2, gap="large")
-    a.plotly_chart(auc_fig(), theme=None, key="auc")
+    a.plotly_chart(auc_fig(shown), theme=None, key="auc")
     explain("auc", a)
-    b.plotly_chart(radar_fig(), theme=None, key="radar")
+    b.plotly_chart(radar_fig(shown), theme=None, key="radar")
     explain("radar", b)
     st.subheader("Full metrics")
     table = pd.DataFrame([{"Model": n, "CV AUC": R[n]["cv"]["roc_auc"], "Test AUC": R[n]["test"]["roc_auc"], "Test PR-AUC": R[n]["test"]["pr_auc"],
