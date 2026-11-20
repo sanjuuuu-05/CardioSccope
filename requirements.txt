@@ -1,4 +1,4 @@
-# --- Dashboard (streamlit_app.py) ---
+# --- Dashboard (app.py) ---
 streamlit>=1.40
 plotly>=5.24
 numpy>=1.26
