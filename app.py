@@ -142,6 +142,46 @@ if DARK:
 .stApp [data-testid="stBaseButton-segmented_controlActive"],.stApp [data-testid="stBaseButton-pillsActive"]{background:#2d3a63!important;border-color:#8ea2ff!important}
 .stApp [data-testid="stSlider"] [role="slider"]{background:#8ea2ff!important}
 </style>""")
+
+# widget skin: set explicitly for BOTH modes so it never depends on the host's Streamlit theme
+_T = dict(IN_BG="#1b2230", IN_FG="#f3f4f6", BORDER="#3a4458", TRACK="#4a5570", ACC="#8ea2ff", PH="#a3adc2", SEG="#2d3a63") if DARK else \
+     dict(IN_BG="#ffffff", IN_FG="#111827", BORDER="#aab4c8", TRACK="#c3cad8", ACC="#4361ee", PH="#6b7280", SEG="#e0e7ff")
+_W = """
+.stApp [data-testid="stNumberInputContainer"],.stApp [data-testid="stNumberInputContainer"] *,
+.stApp [data-baseweb="input"],.stApp [data-baseweb="input"] *,.stApp [data-baseweb="base-input"],
+.stApp [data-baseweb="select"],.stApp [data-baseweb="select"] div,
+.stApp [data-testid="stSelectbox"]>div:last-child,.stApp [data-testid="stSelectbox"]>div:last-child div{background-color:@IN_BG@!important;color:@IN_FG@!important}
+.stApp [data-testid="stNumberInputContainer"],.stApp [data-baseweb="select"]>div{border-color:@BORDER@!important}
+.stApp [data-testid^="stNumberInputStep"],.stApp [data-testid^="stNumberInputStep"] *{background-color:@IN_BG@!important;color:@IN_FG@!important}
+.stApp [data-testid="stNumberInputContainer"] svg,.stApp [data-baseweb="select"] svg,.stApp [data-baseweb="input"] svg{fill:@IN_FG@!important;color:@IN_FG@!important}
+.stApp input::placeholder{color:@PH@!important;opacity:1!important;-webkit-text-fill-color:@PH@!important}
+.stApp [data-baseweb="select"] [aria-live],.stApp [data-baseweb="select"] [class*="placeholder"]{color:@PH@!important}
+.stApp [data-baseweb="popover"],.stApp [data-baseweb="popover"] *,.stApp [data-baseweb="menu"],.stApp [role="listbox"],.stApp [role="option"]{background-color:@IN_BG@!important;color:@IN_FG@!important}
+.stApp .stButton button,.stApp [data-testid^="stBaseButton-secondary"]{background-color:@IN_BG@!important;color:@IN_FG@!important;border:1px solid @BORDER@!important}
+.stApp button[data-variant="segmented_control"],.stApp button[data-variant="pills"]{background-color:@IN_BG@!important;color:@IN_FG@!important;border:1px solid @BORDER@!important}
+.stApp button[data-variant="segmented_control"][aria-checked="true"],.stApp button[data-variant="pills"][aria-checked="true"],.stApp button[data-variant="pills"][aria-pressed="true"],
+.stApp button[data-variant="segmented_control"][aria-pressed="true"]{background-color:@SEG@!important;border-color:@ACC@!important}
+.stApp [data-testid="stCheckbox"] label>span+div{background-color:@TRACK@!important}
+.stApp [data-testid="stCheckbox"] label>span+div>div{background-color:#ffffff!important}
+.stApp [data-testid="stCheckbox"] label:has(input:checked)>span+div{background-color:@ACC@!important}
+.stApp [data-testid="stRadioOption"]>span+div>div:first-child{background-color:@IN_BG@!important;border:2px solid @TRACK@!important}
+.stApp [data-testid="stRadioOption"]:has(input:checked)>span+div>div:first-child{background-color:@ACC@!important;border-color:@ACC@!important}
+.stApp [data-testid="stRadioOption"]:has(input:checked)>span+div>div:first-child>div{background-color:#ffffff!important}
+.stApp [data-testid="stSelectbox"] [data-baseweb="select"],.stApp [data-testid="stSelectbox"] [data-baseweb="select"]>div{border:1px solid @BORDER@!important;border-radius:8px}
+.stApp [data-baseweb="radio"]>div:first-child{background-color:@IN_BG@!important;border:2px solid @TRACK@!important}
+.stApp [data-baseweb="radio"] input:checked+div,.stApp [data-baseweb="radio"]:has(input:checked)>div:first-child{background-color:@ACC@!important;border-color:@ACC@!important}
+.stApp [data-testid="stAlertContainer"]{background-color:#eef2f7!important}
+.stApp [data-testid="stAlertContainer"]:has([data-testid="stAlertContentSuccess"]){background-color:#dcf5e5!important}
+.stApp [data-testid="stAlertContainer"]:has([data-testid="stAlertContentWarning"]){background-color:#fdf0c8!important}
+.stApp [data-testid="stAlertContainer"]:has([data-testid="stAlertContentError"]){background-color:#fbd9d6!important}
+.stApp [data-testid="stAlertContainer"]:has([data-testid="stAlertContentInfo"]){background-color:#dbe8fd!important}
+.stApp [data-testid="stAlertContainer"],.stApp [data-testid="stAlertContainer"] *{color:#111827!important}
+.stApp [data-testid="stExpander"] details,.stApp [data-testid="stExpander"] summary{background-color:@IN_BG@!important;border-color:@BORDER@!important}
+.stApp [data-testid="stSlider"] [role="slider"]{background-color:@ACC@!important}
+"""
+for k, v in _T.items():
+    _W = _W.replace("@" + k + "@", v)
+_css = _css.replace("</style>", _W + "</style>")
 st.markdown(_css.replace("@W@", "#ffffff"), unsafe_allow_html=True)
 
 # plotly figures are cached, so the light/dark skin is applied at draw time
